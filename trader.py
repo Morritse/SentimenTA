@@ -229,6 +229,26 @@ class Trader:
         analyzer = TechnicalAnalyzer()
         
         while True:
+            from datetime import datetime, time, timedelta
+            now = datetime.now()
+            market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
+            trade_start = market_open + timedelta(minutes=30)  # 10:00 AM
+            market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+            if now >= market_close:
+                print("Market close reached. Closing all positions.")
+                current_positions = self.position_manager.update_positions()
+                for symbol in list(current_positions.keys()):
+                    self.position_manager.close_position(symbol)
+                next_trade_start = (now + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
+                sleep_time = (next_trade_start - now).total_seconds()
+                print(f"Sleeping until {next_trade_start} (sleep for {sleep_time} seconds)")
+                time.sleep(sleep_time)
+                continue
+            elif now < trade_start:
+                print(f"Waiting until 30 minutes after market open ({trade_start}). Current time: {now}")
+                sleep_time = (trade_start - now).total_seconds()
+                time.sleep(sleep_time)
+                continue
             print(f"\n=== Trading Loop Starting at {datetime.now()} ===")
             
             # Run full trading cycle
