@@ -1,5 +1,6 @@
 import os
 import time
+import pytz
 from datetime import datetime
 from dotenv import load_dotenv
 from alpaca.trading.enums import OrderSide
@@ -13,11 +14,11 @@ class Trader:
         self.position_manager = PositionManager()
     
     def is_market_open_period(self):
-        """Check if we're in the first 30 minutes of market open"""
-        now = datetime.now()
-        market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
-        minutes_since_open = (now - market_open).total_seconds() / 60
-        return 0 <= minutes_since_open < 30
+        """Check if we're in the first 30 minutes of market open (9:30 AM to 10:00 AM EST)"""
+        now = datetime.now(pytz.timezone('US/Eastern'))
+        minutes_since_midnight = now.hour * 60 + now.minute
+        # Market opens at 9:30 AM (570 mins) and 30-min window ends at 10:00 AM (600 mins)
+        return 570 <= minutes_since_midnight < 600
     
     def manage_existing_positions(self, analyzer):
         """Manage existing positions"""
@@ -230,6 +231,18 @@ class Trader:
         
         while True:
             print(f"\n=== Trading Loop Starting at {datetime.now()} ===")
+            
+            # Check if market is open
+            try:
+                clock = self.position_manager.trading_client.get_clock()
+                if not clock.is_open:
+                    print(f"\nMarket is currently closed.")
+                    print(f"Next open: {clock.next_open}")
+                    print(f"Sleeping for {interval_seconds} seconds before checking again...")
+                    time.sleep(interval_seconds)
+                    continue
+            except Exception as e:
+                print(f"\nError checking market clock: {str(e)}")
             
             # Run full trading cycle
             self.manage_existing_positions(analyzer)
